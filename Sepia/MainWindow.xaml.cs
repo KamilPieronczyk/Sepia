@@ -6,9 +6,9 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -26,12 +26,46 @@ namespace Sepia
     /// <summary>
     /// Logika interakcji dla klasy MainWindow.xaml
     /// </summary>
+    /// 
     public partial class MainWindow : Window
     {
         Bitmap bmp;
+
+        //[DllImport(@"C:\Users\Kamil\source\repos\Sepia\x64\Debug\AsmDll.dll", CallingConvention = CallingConvention.StdCall)]
+        //public static extern uint MyProc1();
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr LoadLibrary(string libname);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
+        private static extern bool FreeLibrary(IntPtr hModule);
+        [DllImport("kernel32.dll", CharSet = CharSet.Ansi)]
+        private static extern IntPtr GetProcAddress(IntPtr hModule, string lpProcName);
+
+        delegate void CreateSepia_Delegate(byte[] bytes, int length, int deepth);
+
+        CreateSepia_Delegate CreateSepia;
         public MainWindow()
         {
             InitializeComponent();
+            //CreateSepia = LoadFromCs;
+            CreateSepia = LoadFromAsm;
+        }
+
+        void LoadFromAsm(byte[] bytes, int length, int deepth)
+        {            
+            IntPtr Handle = LoadLibrary(@"C:\Users\Kamil\source\repos\Sepia\x64\Debug\AsmDll.dll");
+            IntPtr funcaddr = GetProcAddress(Handle, "CreateSepia");
+            CreateSepia_Delegate function = Marshal.GetDelegateForFunctionPointer(funcaddr, typeof(CreateSepia_Delegate)) as CreateSepia_Delegate;
+            function.Invoke(bytes, length , deepth);
+        }
+
+        void LoadFromCs(byte[] bytes, int length, int deepth)
+        {
+            var DLL = Assembly.LoadFile(@"C:\Users\Kamil\source\repos\Sepia\CsDll\bin\Debug\CsDll.dll");
+            var class1Type = DLL.GetType("CsDll.Class1");
+            dynamic c = Activator.CreateInstance(class1Type);
+            c.CreateSepia(bytes, length, deepth);
         }
 
         private void Button_LoadFromFile(object sender, RoutedEventArgs e)
@@ -62,23 +96,47 @@ namespace Sepia
 
         public void Sepia()
         {
-            int x, y;
-            for (x = 0; x < bmp.Width; x++)
-            {
-                for (y = 0; y < bmp.Height; y++)
-                {
-                    Color oldColor = bmp.GetPixel(x, y);
-                    double newR = oldColor.R * 0.393 + oldColor.G * 0.769 + oldColor.B * 0.189;
-                    double newG = 0.349 * oldColor.R + 0.686 * oldColor.G + 0.168 * oldColor.B;
-                    double newB = 0.272 * oldColor.R + 0.534 * oldColor.G + 0.131 * oldColor.B;
-                    byte R = newR > 255.0 ? (byte)255 : (byte)((int)newR);
-                    byte G = newG > 255.0 ? (byte)255 : (byte)((int)newG);
-                    byte B = newB > 255.0 ? (byte)255 : (byte)((int)newB);
-                    Color newPixelColor = Color.FromArgb(R, G, B);
-                    bmp.SetPixel(x, y, newPixelColor);                    
-                }
-            }
-            SepiaImage.Source = ImageSourceFromBitmap(bmp);
+            int sepia = (int)sepia_deepth.Value;
+
+            System.Drawing.Rectangle rect = new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height);
+            Bitmap sepiaBmp = bmp.Clone(rect, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            System.Drawing.Imaging.BitmapData bmpData = sepiaBmp.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadWrite, sepiaBmp.PixelFormat);
+
+
+            // Get the address of the first line.
+            IntPtr ptr = bmpData.Scan0;
+
+            // Declare an array to hold the bytes of the bitmap.
+            int length = Math.Abs(bmpData.Stride) * sepiaBmp.Height;
+            byte[] rgbValues = new byte[length];
+
+            // Copy the RGB values into the array.
+            System.Runtime.InteropServices.Marshal.Copy(ptr, rgbValues, 0, length);
+
+            //Time measure
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            //Run Sepia
+            CreateSepia.Invoke(rgbValues, length, sepia);
+
+            //Execution time
+            watch.Stop();
+            var elapsedMs = watch.ElapsedMilliseconds;
+            timeLabel.Content = elapsedMs.ToString();
+
+            // Copy the RGB values back to the bitmap
+            System.Runtime.InteropServices.Marshal.Copy(rgbValues, 0, ptr, length);
+
+            // Unlock the bits.
+            sepiaBmp.UnlockBits(bmpData);
+
+            SepiaImage.Source = ImageSourceFromBitmap(sepiaBmp);
+
+            sepiaBmp.Save(@"C:\Users\Kamil\Desktop\output.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+
+        }
+
+        private void Save_Image()
+        {
         }
 
         private void Button_Generate(object sender, RoutedEventArgs e)
