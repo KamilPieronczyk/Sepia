@@ -115,20 +115,12 @@ namespace Sepia
             byte[] rgbValues = new byte[length];
 
             // Copy the RGB values into the array.
-            unsafe
+            int pos = 0;
+            for (int i = 0; i < sepiaBmp.Height * Math.Abs(bmpData.Stride); i+= sepiaBmp.Width*3)
             {
-                byte* ptrTemp = (byte*)bmpData.Scan0.ToPointer();
-                int i = 0;
-                for (int y = 0; y < sepiaBmp.Height; y++)
-                {
-                    for (int x = 0; x < sepiaBmp.Width * 3; x++)
-                    {
-                        rgbValues[i] = (byte)ptrTemp[0];
-                        i++;
-                        ptrTemp++;
-                    }
-                    ptrTemp += offset;
-                }
+                System.Runtime.InteropServices.Marshal.Copy(ptr + i, rgbValues, pos, sepiaBmp.Width * 3);
+                pos += sepiaBmp.Width * 3;
+                i += offset;
             }
 
             
@@ -142,22 +134,16 @@ namespace Sepia
             var elapsedMs = watch.ElapsedMilliseconds;
             timeLabel.Content = elapsedMs.ToString();
 
+
             // Copy the RGB values back to the bitmap
-            unsafe
+            pos = 0;
+            for (int i = 0; i < sepiaBmp.Height * Math.Abs(bmpData.Stride); i += sepiaBmp.Width * 3)
             {
-                byte* ptrTemp = (byte*)bmpData.Scan0.ToPointer();
-                int i = 0;
-                for (int y = 0; y < sepiaBmp.Height; y++)
-                {
-                    for (int x = 0; x < sepiaBmp.Width * 3; x++)
-                    {
-                        ptrTemp[0] = rgbValues[i];
-                        i++;
-                        ptrTemp++;
-                    }
-                    ptrTemp += offset;
-                }
+                System.Runtime.InteropServices.Marshal.Copy(rgbValues, pos, ptr + i, sepiaBmp.Width * 3);
+                pos += sepiaBmp.Width * 3;
+                i += offset;
             }
+
 
 
             // Unlock the bits.
