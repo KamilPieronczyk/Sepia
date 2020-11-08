@@ -107,12 +107,31 @@ namespace Sepia
             IntPtr ptr = bmpData.Scan0;
 
             // Declare an array to hold the bytes of the bitmap.
-            int length = Math.Abs(bmpData.Stride) * sepiaBmp.Height;
+            int length = bmpData.Width * 3 * sepiaBmp.Height;
+
+            //offset of the processor world
+            int offset = Math.Abs(bmpData.Stride) - (sepiaBmp.Width * 3);
+
             byte[] rgbValues = new byte[length];
 
             // Copy the RGB values into the array.
-            System.Runtime.InteropServices.Marshal.Copy(ptr, rgbValues, 0, length);
+            unsafe
+            {
+                byte* ptrTemp = (byte*)bmpData.Scan0.ToPointer();
+                int i = 0;
+                for (int y = 0; y < sepiaBmp.Height; y++)
+                {
+                    for (int x = 0; x < sepiaBmp.Width * 3; x++)
+                    {
+                        rgbValues[i] = (byte)ptrTemp[0];
+                        i++;
+                        ptrTemp++;
+                    }
+                    ptrTemp += offset;
+                }
+            }
 
+            
             //Time measure
             var watch = System.Diagnostics.Stopwatch.StartNew();
             //Run Sepia
@@ -124,7 +143,22 @@ namespace Sepia
             timeLabel.Content = elapsedMs.ToString();
 
             // Copy the RGB values back to the bitmap
-            System.Runtime.InteropServices.Marshal.Copy(rgbValues, 0, ptr, length);
+            unsafe
+            {
+                byte* ptrTemp = (byte*)bmpData.Scan0.ToPointer();
+                int i = 0;
+                for (int y = 0; y < sepiaBmp.Height; y++)
+                {
+                    for (int x = 0; x < sepiaBmp.Width * 3; x++)
+                    {
+                        ptrTemp[0] = rgbValues[i];
+                        i++;
+                        ptrTemp++;
+                    }
+                    ptrTemp += offset;
+                }
+            }
+
 
             // Unlock the bits.
             sepiaBmp.UnlockBits(bmpData);
