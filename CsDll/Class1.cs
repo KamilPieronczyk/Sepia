@@ -12,15 +12,15 @@ namespace CsDll
         {
             for (int i = 0; i < length; i += 3)
             {
-                double gray = (bytes[i] + bytes[i + 1] + bytes[i + 2]) / 3;
+                int gray = (int)Math.Round((double)(bytes[i] + bytes[i + 1] + bytes[i + 2]) / 3, MidpointRounding.AwayFromZero);
 
-                double newR = gray + (2 * deepth);
-                double newG = gray + deepth;
-                double newB = gray;
+                int newR = gray + (2 * deepth);
+                int newG = gray + deepth;
+                int newB = gray;
 
-                byte R = newR > 255.0 ? (byte)255 : (byte)((int)newR);
-                byte G = newG > 255.0 ? (byte)255 : (byte)((int)newG);
-                byte B = newB > 255.0 ? (byte)255 : (byte)((int)newB);
+                byte R = newR > 255 ? (byte)255 : (byte)newR;
+                byte G = newG > 255 ? (byte)255 : (byte)newG;
+                byte B = newB > 255 ? (byte)255 : (byte)newB;
 
                 bytes[i] = B;
                 bytes[i + 1] = G;

@@ -20,6 +20,10 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Color = System.Drawing.Color;
+using LiveCharts;
+using LiveCharts.Wpf;
+using System.Runtime.CompilerServices;
+using LiveCharts.Helpers;
 
 namespace Sepia
 {
@@ -29,7 +33,10 @@ namespace Sepia
     /// 
     public partial class MainWindow : Window
     {
+        public SeriesCollection SeriesCollection { get; set; }
+        public SeriesCollection SeriesCollectionAfter { get; set; }
         Bitmap bmp;
+        Bitmap sepiaBmp;
 
         //[DllImport(@"C:\Users\Kamil\source\repos\Sepia\x64\Debug\AsmDll.dll", CallingConvention = CallingConvention.StdCall)]
         //public static extern uint MyProc1();
@@ -45,9 +52,11 @@ namespace Sepia
         delegate void CreateSepia_Delegate(byte[] bytes, int length, int deepth);
 
         CreateSepia_Delegate CreateSepia;
+
         public MainWindow()
         {
             InitializeComponent();
+            InitHistogram();
             //CreateSepia = LoadFromCs;
             CreateSepia = LoadFromAsm;
         }
@@ -99,7 +108,6 @@ namespace Sepia
             int sepia = (int)sepia_deepth.Value;
 
             System.Drawing.Rectangle rect = new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height);
-            Bitmap sepiaBmp = bmp.Clone(rect, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             System.Drawing.Imaging.BitmapData bmpData = sepiaBmp.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadWrite, sepiaBmp.PixelFormat);
 
 
@@ -123,16 +131,18 @@ namespace Sepia
                 i += offset;
             }
 
-            
+            CreateHistogram(rgbValues, SeriesCollection);
+
             //Time measure
             var watch = System.Diagnostics.Stopwatch.StartNew();
             //Run Sepia
             CreateSepia.Invoke(rgbValues, length, sepia);
-
             //Execution time
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
             timeLabel.Content = elapsedMs.ToString();
+
+            CreateHistogram(rgbValues, SeriesCollectionAfter);
 
 
             // Copy the RGB values back to the bitmap
@@ -149,9 +159,7 @@ namespace Sepia
             // Unlock the bits.
             sepiaBmp.UnlockBits(bmpData);
 
-            SepiaImage.Source = ImageSourceFromBitmap(sepiaBmp);
 
-            sepiaBmp.Save(@"C:\Users\Kamil\Desktop\output.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
 
         }
 
@@ -161,7 +169,121 @@ namespace Sepia
 
         private void Button_Generate(object sender, RoutedEventArgs e)
         {
+            if (AsmRadio.IsChecked == true)
+                CreateSepia = LoadFromAsm;
+            else
+                CreateSepia = LoadFromCs;
+
+            System.Drawing.Rectangle rect = new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height);
+            sepiaBmp = bmp.Clone(rect, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             Sepia();
+            SepiaImage.Source = ImageSourceFromBitmap(sepiaBmp);
+            sepiaBmp.Save(@"C:\Users\Kamil\Desktop\output.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+
+        }
+
+        private void CreateHistogram(byte[] rgbValues, SeriesCollection series)
+        {
+            int[] R = new int[256];
+            int[] G = new int[256];
+            int[] B = new int[256];
+
+            series[0].Values.Clear();
+            series[1].Values.Clear();
+            series[2].Values.Clear();
+
+            for (int i = 0; i < 256; i++)
+            {
+                R[i] = 0;
+                G[i] = 0;
+                B[i] = 0;
+            }
+
+            for(int i = 0; i < rgbValues.Length; i += 3)
+            {
+                R[(int)rgbValues[i]]++;
+                G[(int)rgbValues[i + 1]]++;
+                B[(int)rgbValues[i + 2]]++;
+            }
+
+            for (int i = 0; i < 256; i++)
+            {
+                series[0].Values.Add(R[i]);
+                series[1].Values.Add(G[i]);
+                series[2].Values.Add(B[i]);
+            }
+        }
+
+        private void InitHistogram()
+        {
+            chart.AxisY.Clear();
+            chart.AxisY.Add(
+                new Axis
+                {
+                    MinValue = 0
+                }
+            );
+
+            chartAfter.AxisY.Clear();
+            chartAfter.AxisY.Add(
+                new Axis
+                {
+                    MinValue = 0
+                }
+            );
+
+            SeriesCollection = new SeriesCollection
+            {
+                new LineSeries
+                {
+                    Title = "Red",
+                    PointGeometry = null,
+                    Values = new ChartValues<int>{},
+                    Stroke = System.Windows.Media.Brushes.Red
+                },
+                new LineSeries
+                {
+                    Title = "Green",
+                    PointGeometry = null,
+                    Values = new ChartValues<int>{},
+                    Stroke = System.Windows.Media.Brushes.Green
+                },
+                new LineSeries
+                {
+                    Title = "Blue",
+                    PointGeometry = null,
+                    Values = new ChartValues<int>{},
+                    Stroke = System.Windows.Media.Brushes.Blue
+                }
+            };
+
+            SeriesCollectionAfter = new SeriesCollection
+            {
+                new LineSeries
+                {
+                    Title = "Red",
+                    PointGeometry = null,
+                    Values = new ChartValues<int>{},
+                    Stroke = System.Windows.Media.Brushes.Red
+                },
+                new LineSeries
+                {
+                    Title = "Green",
+                    PointGeometry = null,
+                    Values = new ChartValues<int>{},
+                    Stroke = System.Windows.Media.Brushes.Green
+                },
+                new LineSeries
+                {
+                    Title = "Blue",
+                    PointGeometry = null,
+                    Values = new ChartValues<int>{},
+                    Stroke = System.Windows.Media.Brushes.Blue
+                }
+            };
+
+
+            DataContext = this;
         }
     }
 }
