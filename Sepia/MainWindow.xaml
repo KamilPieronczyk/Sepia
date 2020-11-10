@@ -20,15 +20,20 @@
 
         <StackPanel Grid.Column="0" VerticalAlignment="Top" Height="419" Background="#FFD1D1D1">
             <Button Grid.Column="0" Height="50" Margin="20,20,20,0" Click="Button_LoadFromFile" VerticalAlignment="Top">Load From File</Button>
+            <Label Margin="20,0,20,0">Parametr:</Label>
             <TextBox Text="{Binding ElementName=sepia_deepth, Path=Value, UpdateSourceTrigger=PropertyChanged}" DockPanel.Dock="Right" TextAlignment="Right" Width="40" Margin="0,10,0,0" />
-            <Slider Maximum="40" Minimum="20" TickPlacement="BottomRight" IsSnapToTickEnabled="True" Name="sepia_deepth" Margin="20,0,20,10" />
-            <StackPanel Margin="20">
+            <Slider Maximum="40" Minimum="20" TickPlacement="BottomRight" IsSnapToTickEnabled="True" Name="sepia_deepth" Margin="20,0,20,0" />
+            <StackPanel Margin="20, 0, 20, 0">
                 <RadioButton Name="AsmRadio">Assemler</RadioButton>
                 <RadioButton IsChecked="True" Name="CsRadio" Margin="0,10,0,0">C#</RadioButton>
             </StackPanel>
+
+            <Label Margin="20,0,20,0">Wątki: </Label>
+            <TextBox Text="{Binding ElementName=threads, Path=Value, UpdateSourceTrigger=PropertyChanged}" DockPanel.Dock="Right" TextAlignment="Right" Width="40" Margin="0,0,0,0" />
+            <Slider Maximum="64" Minimum="1" TickPlacement="BottomRight" IsSnapToTickEnabled="True" Name="threads" Margin="20,0,20,0" />
+
             <Button Grid.Column="0" Height="50" Margin="20" Click="Button_Generate">Generate</Button>
-            <Button Grid.Column="0" Height="25" Margin="20,0,20,10">Histogram</Button>
-            <Button Grid.Column="0" Height="25" Margin="20,0,20,0">Save</Button>
+            <Button Grid.Column="0" Height="25" Margin="20,0,20,0" Click="Save_Image">Save</Button>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" >
                 <Label Margin="0,0,-8,0" Content="Czas wykonania:"/>
                 <Label x:Name="timeLabel" Content="0"/>

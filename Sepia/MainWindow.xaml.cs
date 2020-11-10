@@ -24,6 +24,8 @@ using LiveCharts;
 using LiveCharts.Wpf;
 using System.Runtime.CompilerServices;
 using LiveCharts.Helpers;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Sepia
 {
@@ -31,6 +33,7 @@ namespace Sepia
     /// Logika interakcji dla klasy MainWindow.xaml
     /// </summary>
     /// 
+    delegate void CreateSepia_Delegate(byte[] bytes, int length, int deepth);
     public partial class MainWindow : Window
     {
         public SeriesCollection SeriesCollection { get; set; }
@@ -49,7 +52,6 @@ namespace Sepia
         [DllImport("kernel32.dll", CharSet = CharSet.Ansi)]
         private static extern IntPtr GetProcAddress(IntPtr hModule, string lpProcName);
 
-        delegate void CreateSepia_Delegate(byte[] bytes, int length, int deepth);
 
         CreateSepia_Delegate CreateSepia;
 
@@ -57,13 +59,12 @@ namespace Sepia
         {
             InitializeComponent();
             InitHistogram();
-            //CreateSepia = LoadFromCs;
-            CreateSepia = LoadFromAsm;
         }
 
         void LoadFromAsm(byte[] bytes, int length, int deepth)
         {            
-            IntPtr Handle = LoadLibrary(@"C:\Users\Kamil\source\repos\Sepia\x64\Debug\AsmDll.dll");
+            //IntPtr Handle = LoadLibrary(@"C:\Users\Kamil\source\repos\Sepia\x64\Debug\AsmDll.dll");
+            IntPtr Handle = LoadLibrary(@"./AsmDll.dll");
             IntPtr funcaddr = GetProcAddress(Handle, "CreateSepia");
             CreateSepia_Delegate function = Marshal.GetDelegateForFunctionPointer(funcaddr, typeof(CreateSepia_Delegate)) as CreateSepia_Delegate;
             function.Invoke(bytes, length , deepth);
@@ -71,7 +72,9 @@ namespace Sepia
 
         void LoadFromCs(byte[] bytes, int length, int deepth)
         {
-            var DLL = Assembly.LoadFile(@"C:\Users\Kamil\source\repos\Sepia\CsDll\bin\Debug\CsDll.dll");
+            //var DLL = Assembly.LoadFile(@"C:\Users\Kamil\source\repos\Sepia\CsDll\bin\Debug\CsDll.dll");
+            var dllFile = new FileInfo(@"./CsDll.dll");
+            var DLL = Assembly.LoadFile(dllFile.FullName);
             var class1Type = DLL.GetType("CsDll.Class1");
             dynamic c = Activator.CreateInstance(class1Type);
             c.CreateSepia(bytes, length, deepth);
@@ -108,6 +111,7 @@ namespace Sepia
             int sepia = (int)sepia_deepth.Value;
 
             System.Drawing.Rectangle rect = new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height);
+            sepiaBmp = bmp.Clone(rect, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             System.Drawing.Imaging.BitmapData bmpData = sepiaBmp.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadWrite, sepiaBmp.PixelFormat);
 
 
@@ -133,17 +137,42 @@ namespace Sepia
 
             CreateHistogram(rgbValues, SeriesCollection);
 
+            int threadsCount = (int)threads.Value;
+            var threadsArray = new List<Task>();
+            byte[][] arrayContainer = new byte[threadsCount][];
+
+            int SPAN = (int)Math.Ceiling(((decimal)sepiaBmp.Height / threadsCount)) * sepiaBmp.Width * 3;
+            int span = SPAN;
+
+
             //Time measure
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            //Run Sepia
-            CreateSepia.Invoke(rgbValues, length, sepia);
+
+            for (int i = 0; i < threadsCount; i++)
+            {
+                if (span * (i + 1) > length) span = length - (span * i);
+                arrayContainer[i] = new byte[span];
+                Array.Copy(rgbValues, SPAN * i, arrayContainer[i], 0, span);
+                SepiaThread sepiaThread = new SepiaThread(arrayContainer[i], span, (int)sepia_deepth.Value, CreateSepia);
+                threadsArray.Add(Task.Factory.StartNew(sepiaThread.Sepia));
+            }
+
+            Task.WaitAll(threadsArray.ToArray());
+
             //Execution time
             watch.Stop();
             var elapsedMs = watch.ElapsedMilliseconds;
             timeLabel.Content = elapsedMs.ToString();
 
-            CreateHistogram(rgbValues, SeriesCollectionAfter);
+            span = (int)Math.Ceiling(((decimal)sepiaBmp.Height / threadsCount)) * sepiaBmp.Width * 3;
+            for (int i = 0; i < threadsCount; i++)
+            {
+                if (span * (i + 1) > length) span = length - (span * i);
+                Array.Copy(arrayContainer[i], 0, rgbValues, SPAN * i, span);
+            }
+            
 
+            CreateHistogram(rgbValues, SeriesCollectionAfter);
 
             // Copy the RGB values back to the bitmap
             pos = 0;
@@ -155,16 +184,33 @@ namespace Sepia
             }
 
 
-
             // Unlock the bits.
             sepiaBmp.UnlockBits(bmpData);
 
-
-
+            SepiaImage.Source = ImageSourceFromBitmap(sepiaBmp);
         }
 
-        private void Save_Image()
+        private void Save_Image(object sender, RoutedEventArgs e)
         {
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png";
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                var fileName = saveFileDialog.FileName;
+                var extension = System.IO.Path.GetExtension(saveFileDialog.FileName);
+
+                switch (extension.ToLower())
+                {
+                    case ".jpg":
+                        sepiaBmp.Save(fileName, System.Drawing.Imaging.ImageFormat.Jpeg);
+                        break;
+                    case ".png":
+                        sepiaBmp.Save(fileName, System.Drawing.Imaging.ImageFormat.Png);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(extension);
+                }
+            }
         }
 
         private void Button_Generate(object sender, RoutedEventArgs e)
@@ -174,11 +220,7 @@ namespace Sepia
             else
                 CreateSepia = LoadFromCs;
 
-            System.Drawing.Rectangle rect = new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height);
-            sepiaBmp = bmp.Clone(rect, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             Sepia();
-            SepiaImage.Source = ImageSourceFromBitmap(sepiaBmp);
-            sepiaBmp.Save(@"C:\Users\Kamil\Desktop\output.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
 
         }
 
@@ -284,6 +326,27 @@ namespace Sepia
 
 
             DataContext = this;
+        }
+    }
+
+    class SepiaThread
+    {
+        byte[] rgbValues;
+        int length;
+        int sepiaDeeth;
+        CreateSepia_Delegate CreateSepia;
+
+        public SepiaThread(byte[] rgbValues, int length, int sepiaDeeth, CreateSepia_Delegate createSepia)
+        {
+            this.rgbValues = rgbValues;
+            this.length = length;
+            this.sepiaDeeth = sepiaDeeth;
+            CreateSepia = createSepia;
+        }
+
+        public void Sepia()
+        {
+            CreateSepia.Invoke(rgbValues, length, sepiaDeeth);
         }
     }
 }
