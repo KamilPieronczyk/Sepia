@@ -170,14 +170,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="..\..\..\..\Desktop\LibAsm.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <FileType>Document</FileType>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </MASM>
+    <None Include="LibAsm.def" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="LibAsm.def" />
+    <MASM Include="LibAsm.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </MASM>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

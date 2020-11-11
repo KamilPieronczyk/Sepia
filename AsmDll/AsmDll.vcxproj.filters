@@ -31,13 +31,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="..\..\..\..\Desktop\LibAsm.asm">
-      <Filter>Pliki źródłowe</Filter>
-    </MASM>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="LibAsm.def">
       <Filter>Pliki nagłówkowe</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="LibAsm.asm">
+      <Filter>Pliki źródłowe</Filter>
+    </MASM>
   </ItemGroup>
 </Project>
