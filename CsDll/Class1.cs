@@ -1,4 +1,8 @@
-﻿using System;
+﻿/**
+ * @author Kamil Pierończyk Gr.2 AEI, Inf, rok 3
+ * Sepia
+ */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;

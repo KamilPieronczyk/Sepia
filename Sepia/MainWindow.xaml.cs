@@ -1,4 +1,8 @@
-﻿using Microsoft.Win32;
+﻿/**
+ * @author Kamil Pierończyk Gr.2 AEI, Inf, rok 3
+ * Sepia
+ */
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -38,12 +42,10 @@ namespace Sepia
     {
         public SeriesCollection SeriesCollection { get; set; }
         public SeriesCollection SeriesCollectionAfter { get; set; }
-        Bitmap bmp;
-        Bitmap sepiaBmp;
+        Bitmap bmp; //bitmapa zdjecia do edycji
+        Bitmap sepiaBmp; //bitmapa zdjecia po edycji
 
-        //[DllImport(@"C:\Users\Kamil\source\repos\Sepia\x64\Debug\AsmDll.dll", CallingConvention = CallingConvention.StdCall)]
-        //public static extern uint MyProc1();
-
+        //biblioteki do ładowania dll dynamicznie
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr LoadLibrary(string libname);
 
@@ -53,23 +55,24 @@ namespace Sepia
         private static extern IntPtr GetProcAddress(IntPtr hModule, string lpProcName);
 
 
-        CreateSepia_Delegate CreateSepia;
+        CreateSepia_Delegate CreateSepia; //wskaźnik na funckję wykonywującą algorytm
 
         public MainWindow()
         {
             InitializeComponent();
-            InitHistogram();
+            InitHistogram(); //przygotowuje wykresy histogramu
         }
 
+        //Ładuje biblioteke asm
         void LoadFromAsm(byte[] bytes, int length, int deepth)
-        {            
-            //IntPtr Handle = LoadLibrary(@"C:\Users\Kamil\source\repos\Sepia\x64\Debug\AsmDll.dll");
+        {   
             IntPtr Handle = LoadLibrary(@"./AsmDll.dll");
             IntPtr funcaddr = GetProcAddress(Handle, "CreateSepia");
             CreateSepia_Delegate function = Marshal.GetDelegateForFunctionPointer(funcaddr, typeof(CreateSepia_Delegate)) as CreateSepia_Delegate;
             function.Invoke(bytes, length , deepth);
         }
 
+        //Ładuje biblioteke cs
         void LoadFromCs(byte[] bytes, int length, int deepth)
         {
             //var DLL = Assembly.LoadFile(@"C:\Users\Kamil\source\repos\Sepia\CsDll\bin\Debug\CsDll.dll");
@@ -80,6 +83,7 @@ namespace Sepia
             c.CreateSepia(bytes, length, deepth);
         }
 
+        //Funkcja przycisku do załadowania zdjęcia
         private void Button_LoadFromFile(object sender, RoutedEventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
@@ -96,6 +100,7 @@ namespace Sepia
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool DeleteObject([In] IntPtr hObject);
 
+        //Tworzy klasę ImageSource do wyświetlania zdjęcia z bitmapy
         public ImageSource ImageSourceFromBitmap(Bitmap bmp)
         {
             var handle = bmp.GetHbitmap();
@@ -106,6 +111,7 @@ namespace Sepia
             finally { DeleteObject(handle); }
         }
 
+        //Uruchamia algorytm
         public void Sepia()
         {
             int sepia = (int)sepia_deepth.Value;
@@ -190,6 +196,7 @@ namespace Sepia
             SepiaImage.Source = ImageSourceFromBitmap(sepiaBmp);
         }
 
+        //Zapisuje zdjęcie
         private void Save_Image(object sender, RoutedEventArgs e)
         {
             SaveFileDialog saveFileDialog = new SaveFileDialog();
@@ -213,6 +220,7 @@ namespace Sepia
             }
         }
 
+        //Przycisk uruchamiający algorytm
         private void Button_Generate(object sender, RoutedEventArgs e)
         {
             if (AsmRadio.IsChecked == true)
@@ -224,6 +232,7 @@ namespace Sepia
 
         }
 
+        //Tworzy histogram
         private void CreateHistogram(byte[] rgbValues, SeriesCollection series)
         {
             int[] R = new int[256];
@@ -256,6 +265,7 @@ namespace Sepia
             }
         }
 
+        //Przygotowuje wykresy
         private void InitHistogram()
         {
             chart.AxisY.Clear();
@@ -329,6 +339,7 @@ namespace Sepia
         }
     }
 
+    //Służy do wywołania algorytmu z wątkami
     class SepiaThread
     {
         byte[] rgbValues;
