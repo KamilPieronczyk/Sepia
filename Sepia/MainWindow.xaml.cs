@@ -54,6 +54,8 @@ namespace Sepia
         [DllImport("kernel32.dll", CharSet = CharSet.Ansi)]
         private static extern IntPtr GetProcAddress(IntPtr hModule, string lpProcName);
 
+        bool isFileGood = false;
+        bool isNewPhotoGenerated = false;
 
         CreateSepia_Delegate CreateSepia; //wskaźnik na funckję wykonywującą algorytm
 
@@ -66,7 +68,7 @@ namespace Sepia
         //Ładuje biblioteke asm
         void LoadFromAsm(byte[] bytes, int length, int deepth)
         {   
-            IntPtr Handle = LoadLibrary(@"./AsmDll.dll");
+            IntPtr Handle = LoadLibrary(@"../../../x64/Debug/AsmDll.dll");
             IntPtr funcaddr = GetProcAddress(Handle, "CreateSepia");
             CreateSepia_Delegate function = Marshal.GetDelegateForFunctionPointer(funcaddr, typeof(CreateSepia_Delegate)) as CreateSepia_Delegate;
             function.Invoke(bytes, length , deepth);
@@ -76,7 +78,7 @@ namespace Sepia
         void LoadFromCs(byte[] bytes, int length, int deepth)
         {
             //var DLL = Assembly.LoadFile(@"C:\Users\Kamil\source\repos\Sepia\CsDll\bin\Debug\CsDll.dll");
-            var dllFile = new FileInfo(@"./CsDll.dll");
+            var dllFile = new FileInfo(@"../../../CsDll/bin/Debug/CsDll.dll");
             var DLL = Assembly.LoadFile(dllFile.FullName);
             var class1Type = DLL.GetType("CsDll.Class1");
             dynamic c = Activator.CreateInstance(class1Type);
@@ -87,12 +89,21 @@ namespace Sepia
         private void Button_LoadFromFile(object sender, RoutedEventArgs e)
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
-            if(openFileDialog.ShowDialog() == true)
+            openFileDialog.Filter = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|BMP (*.bmp)|*.bmp";
+            if (openFileDialog.ShowDialog() == true)
             {
                 var fileName = openFileDialog.FileName;
                 Uri fileUri = new Uri(fileName);
-                SourceImage.Source = new BitmapImage(fileUri);
                 bmp = new Bitmap(fileName);
+                if(bmp.Width * bmp.Height < 60000000)
+                {
+                    SourceImage.Source = new BitmapImage(fileUri);
+                    isFileGood = true;
+                    isNewPhotoGenerated = false;
+                } else
+                {
+                    MessageBox.Show("Zdjęcie przekracza 60MegaPixeli");
+                }
             }
         }
 
@@ -189,18 +200,30 @@ namespace Sepia
                 i += offset;
             }
 
-
+            rgbValues = null;
             // Unlock the bits.
             sepiaBmp.UnlockBits(bmpData);
 
             SepiaImage.Source = ImageSourceFromBitmap(sepiaBmp);
+
+            isNewPhotoGenerated = true;
         }
 
         //Zapisuje zdjęcie
         private void Save_Image(object sender, RoutedEventArgs e)
         {
+            if (isFileGood == false)
+            {
+                MessageBox.Show("Nie wygenerowano zdjęcia");
+                return;
+            }
+            if (!isNewPhotoGenerated || sepiaBmp == null)
+            {
+                MessageBox.Show("Nie wygenerowano zdjęcia");
+                return;
+            }
             SaveFileDialog saveFileDialog = new SaveFileDialog();
-            saveFileDialog.Filter = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png";
+            saveFileDialog.Filter = "JPG (*.jpg)|*.jpg|PNG (*.png)|*.png|BMP (*.bmp)|*.bmp";
             if (saveFileDialog.ShowDialog() == true)
             {
                 var fileName = saveFileDialog.FileName;
@@ -214,6 +237,9 @@ namespace Sepia
                     case ".png":
                         sepiaBmp.Save(fileName, System.Drawing.Imaging.ImageFormat.Png);
                         break;
+                    case ".bmp":
+                        sepiaBmp.Save(fileName, System.Drawing.Imaging.ImageFormat.Bmp);
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException(extension);
                 }
@@ -223,13 +249,17 @@ namespace Sepia
         //Przycisk uruchamiający algorytm
         private void Button_Generate(object sender, RoutedEventArgs e)
         {
+            if(isFileGood == false)
+            {
+                MessageBox.Show("Nie wybrano zdjęcia");
+                return;
+            }
             if (AsmRadio.IsChecked == true)
                 CreateSepia = LoadFromAsm;
             else
                 CreateSepia = LoadFromCs;
 
             Sepia();
-
         }
 
         //Tworzy histogram
